@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>VUE测试</title>
+	<script language="javascript" src="node_modules/vue/dist/vue.js"></script>
+	<script language="javascript" src="node_modules/axios/dist/axios.js"></script>
+</head>
+<body>
+<div id="app">
+
+	<div v-demo style="display: none;">
+		<div component="text">
+			<input type="text" fuckxxx="$data$">
+		</div>
+		<div component="select">
+			<select fuckxxx="$data$">
+				<option value="male">男</option>
+				<option value="female">女</option>
+			</select>
+		</div>
+	</div>
+
+	<my-form :fields="fields"></my-form>
+</div>
+<script language="javascript">
+	var MyPlugin = {
+		install: function (Vue, options) {
+			Vue.prototype.$ajax = function (url, data) {
+				if (window.global != null && window.global.mockStatus == true) {
+					var defer = q.defer();
+					setTimeout(function() {
+						var rs = window.global[url];
+						if (rs instanceof Function) {
+							var result = rs(data);
+							if (result == null) {
+								defer.reject({});
+							} else {
+								defer.resolve(result);
+							}
+
+						} else {
+							defer.resolve(data);
+						}
+					}, 1000);
+
+					return defer.promise;
+				} else {
+					return axios.get(url, data);
+				}
+
+			};
+		}
+	};
+
+	Vue.use(MyPlugin);
+	var tpls = {};
+	var myForm = Vue.component('myForm', {
+		template: '<div><div>{{data}}</div><div :is="formDef" :data="data"></div></div>',
+		/*mounted: function () {
+		 var html = '';
+		 for (var i = 0; i < this.fields.length; i++) {
+		 html += this.fields[i].name;
+		 }
+		 this.formDef.template = html;
+		 },*/
+		data: function () {
+			var html = '<div>';
+			for (var i = 0; i < this.fields.length; i++) {
+				html += '<div><label>' + this.fields[i].label +':</label>';
+				html += tpls[this.fields[i].component].replace('$data$', 'data.' + this.fields[i].name);
+				html += '</div>';
+			}
+			html +='</div>'
+			return{
+			formData:{text:'',select:''},
+			formDef: {template:html, props:['data']},
+			data: {name:'', age:''}
+		}
+		},
+		mounted: function () {
+			this.$ajax('formData.json').then(data => {
+				this.formData = eval('(' + data.data + ')');
+			this.formData = data.data;
+			console.log(this.formData);
+			//console.log(this.formData[text]);
+			/*for(var i = 0; i < this.formData.length; i++) {
+			 tpls[children[i].getAttribute('component')] = children[i].innerHTML;
+			 }*/
+		});
+
+		},
+		props: [
+			'fields'
+		]
+	});
+
+	Vue.directive('demo', {
+		bind: function(el) {
+			console.log('show html ',el.children);
+			var children = el.children;
+			for(var i = 0; i < children.length; i++) {
+				tpls[children[i].getAttribute('component')] = children[i].innerHTML;
+			}
+		}
+	})
+
+	var app = new Vue({
+		el: '#app',
+		data: {
+			fields: [{name: "name", label: "姓名", type: "string", component: "text"},
+				{name: "age", label: "年龄", type: "number", component: "select"}]
+		},
+		components: {
+			MyForm: myForm
+		}
+	});
+</script>
+</body>
+</html>
